@@ -100,6 +100,12 @@ case $K8S_VERSION in
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         ;;
+    "1.12")
+        KUBERNETES_CNI_VERSION="v0.6.0"
+        K8S_FULL_VERSION="1.12.0-alpha.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        ;;
 esac
 
 #Install kubernetes
@@ -111,7 +117,7 @@ case $K8S_VERSION in
             kubeadm=${K8S_FULL_VERSION}* \
             kubectl=${K8S_FULL_VERSION}*
         ;;
-    "1.11")
+    "1.11"|"1.12")
         install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
         ;;
 esac
