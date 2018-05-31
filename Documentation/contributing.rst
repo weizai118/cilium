@@ -820,8 +820,11 @@ your document changes.
 
 Now the documentation page should be browsable on http://localhost:8080.
 
-Debugging datapath code
-~~~~~~~~~~~~~~~~~~~~~~~
+Debugging
+---------
+
+Datapath code
+~~~~~~~~~~~~~
 
 .. note::
 
