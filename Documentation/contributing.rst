@@ -500,21 +500,6 @@ subdirectories that are "named" beginning with the string "Nightly" and contain
 any characters after it. The default version of running Nightly test are 1.8,
 but can be changed using the environment variable ``K8S_VERSION``.
 
-Nightly Testing Jenkins Setup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
-The configuration for this job is stored in ``Jenkinsfile.nightly``.
-
-To see the results of these tests, you can view the JUnit Report for an individual job:
-
-1. Click on the build number you wish to get test results from on the left hand
-   side of the `Cilium-Nightly-Tests Job
-   <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
-2. Click on 'Test Results' on the left side of the page to view the results from the build.
-   This will give you a report of which tests passed and failed. You can click on each test
-   to view its corresponding output created from Ginkgo.
-
 Available CLI Options
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -1027,8 +1012,84 @@ requirements have been met:
   Certificate of Origin" for more details.
 
 
+CI / Jenkins
+------------
+
+The main CI infrastructure is maintained at https://jenkins.cilium.io/. 
+
+Jobs Overview
+~~~~~~~~~~~~~
+
+Cilium-PR-Ginkgo-Tests-Validated
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Runs validated Ginkgo tests which are confirmed to be stable and have been
+verified. These tests must always pass.
+
+The configuration for this job is contained within ``ginkgo.Jenkinsfile``.
+
+It first runs unit tests using docker-compose using a YAML located at
+``test/docker-compose.yaml``.
+
+The next steps happens in parallel:
+
+    - Runs the runtime e2e tests.
+    - Runs the Kubernetes e2e tests against the latest default version of Kubernetes specified above.
+
+
+Cilium-PR-Ginkgo-Tests-k8s
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Runs the Kubernetes e2e tests against all Kubernetes versions that are not
+currently not tested as part of each pull-request, but which Cilium still
+supports, as well as the the most-recently-released versions of Kubernetes that
+are not yet declared stable by Kubernetes upstream:
+
+First stage (stable versions which Cilium still supports):
+
+    - 1.7
+    - 1.8
+
+Second stage (unstable versions)
+
+    - 1.10 beta
+    - 1.11 alpha
+
+
+Cilium-Nightly-Tests-PR
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Runs long lived tests which take extended time. Some of these tests have an
+expected failure rate.
+
+Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+The configuration for this job is stored in ``Jenkinsfile.nightly``.
+
+To see the results of these tests, you can view the JUnit Report for an individual job:
+
+1. Click on the build number you wish to get test results from on the left hand
+   side of the `Cilium-Nightly-Tests Job
+   <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+2. Click on 'Test Results' on the left side of the page to view the results from the build.
+   This will give you a report of which tests passed and failed. You can click on each test
+   to view its corresponding output created from Ginkgo.
+
+The configuration for this job is contained within ``Jenkinsfile.nightly``.
+
+This first runs the Nightly tests with the following setup:
+
+    - 4 Kubernetes 1.8 nodes
+    - 4 GB of RAM per node.
+    - 4 vCPUs per node.
+
+Then, it runs tests Kubernetes tests against versions of Kubernetes that are currently not tested against
+as part of each pull-request, but that Cilium still supports.
+
+It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
+
+
 Triggering Pull-Request Builds With Jenkins
--------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To ensure that build resources are used judiciously, builds on Jenkins
 are manually triggered via comments on each pull-request that contain
@@ -1103,60 +1164,40 @@ example patch that shows how this can be achieved.
 
                             //This test should run in each PR for now.
 
-Jenkins Job Descriptions
-------------------------
+Triage Process
+~~~~~~~~~~~~~~
 
-Cilium-PR-Ginkgo-Tests-Validated
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test failures reported on https://jenkins.cilium.io/ should be handled in the following way:
 
-The configuration for this job is contained within ``ginkgo.Jenkinsfile``.
+Git Branch HEAD CI
+^^^^^^^^^^^^^^^^^^
 
-It first runs unit tests using docker-compose using a YAML located at
-``test/docker-compose.yaml``.
+This includes the following pipelines:
 
-The next steps happens in parallel:
+- https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
+- https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/v1.0/
 
-    - Runs the runtime e2e tests.
-    - Runs the Kubernetes e2e tests against the latest default version of Kubernetes specified above.
+1. Investigate the failure
+2. If false negative, search for existing GitHub issue covering the reason for
+   the false negative. If unknown, open new GitHub issue with prefix CI: and label
+   kind/bug/CI
+3. If not a false negative, open GitHub issue and assign label release-blocker
+   if applicable
+4. Adjust description (Click on build -> Edit Build Information)
 
-Cilium-Nightly-Tests-PR
-~~~~~~~~~~~~~~~~~~~~~~~
++----------------------+-----------------------------------------------------------------------------------+
+| Keyword              | Example                                                                           |
++======================+===================================================================================+
+| FalseNegative        | FalseNegative, Provision Failure (GH-4300), FalseNegative, DNS flake (GH-3333)    |
++----------------------+-----------------------------------------------------------------------------------+
+| Regression           | Regression, GH-1111                                                               |
++----------------------+-----------------------------------------------------------------------------------+
 
-The configuration for this job is contained within ``Jenkinsfile.nightly``.
-
-This first runs the Nightly tests with the following setup:
-
-    - 4 Kubernetes 1.8 nodes
-    - 4 GB of RAM per node.
-    - 4 vCPUs per node.
-
-Then, it runs tests Kubernetes tests against versions of Kubernetes that are currently not tested against
-as part of each pull-request, but that Cilium still supports.
-
-It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
-
-Cilium-PR-Ginkgo-Tests-k8s
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Runs the Kubernetes e2e tests against all Kubernetes versions that are not currently not tested as part
-of each pull-request, but which Cilium still supports, as well as the the most-recently-released versions
-of Kubernetes that are not yet declared stable by Kubernetes upstream:
-
-First stage (stable versions which Cilium still supports):
-
-    - 1.7
-    - 1.8
-
-Second stage (unstable versions)
-
-    - 1.10 beta
-    - 1.11 alpha
-
-CI / Testing environment
-------------------------
+Infrastructure details
+~~~~~~~~~~~~~~~~~~~~~~
 
 Logging into VM running tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1. If you have access to credentials for Jenkins, log into the Jenkins slave running the test workload
 2. Identify the vagrant box running the specific test
@@ -1180,7 +1221,8 @@ Logging into VM running tests
 
 
 Jenkinsfiles Extensions
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
+
 Cilium uses a custom `Jenkins helper library
 <https://github.com/cilium/Jenkins-library>`_ to gather metadata from PRs and
 simplify our Jenkinsfiles. The exported methods are:
