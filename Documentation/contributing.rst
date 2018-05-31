@@ -234,6 +234,16 @@ Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
 in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
 functionality.
 
+Prerequisites
+~~~~~~~~~~~~~
+
+Some tests interact with the kvstore and depend on a local kvstore instances of
+both etcd and consul. To start the local instances, run:
+
+::
+
+     $ make start-kvstores
+
 Running all tests
 ~~~~~~~~~~~~~~~~~
 
@@ -255,14 +265,6 @@ Testing individual packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is possible to test individual packages by invoking ``go test`` directly.
-Before doing so, ensure that the kvstore dependency is met for testing. You can
-start a local etcd and consul instance by running:
-
-::
-
-     $ make start-kvstores
-
-
 You can then ``cd`` into the package subject to testing and invoke go test:
 
 ::
@@ -329,12 +331,6 @@ additions folder sharing, you can issue a build as follows:
 ::
 
     $ make
-
-A successful build should be followed by running the unit tests:
-
-::
-
-    $ make unit-tests
 
 Install Cilium
 ~~~~~~~~~~~~~~
