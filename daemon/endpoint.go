@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -189,6 +190,9 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 			EventType:  workloads.EventTypeStart,
 		}
 	}
+
+	metrics.EndpointStateCount.
+		WithLabelValues(ep.GetState()).Inc()
 
 	return PutEndpointIDCreatedCode, nil
 }
@@ -372,6 +376,13 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	errors := d.deleteEndpointQuiet(ep)
 	for _, err := range errors {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+	}
+
+	// Since the endpoint is already removed from endpointmanager queue,
+	// we do not need to acquire any lock on it.
+	if len(errors) == 0 {
+		metrics.EndpointStateCount.
+			WithLabelValues(ep.GetState()).Dec()
 	}
 	return len(errors)
 }

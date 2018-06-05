@@ -78,6 +78,16 @@ var (
 	},
 		[]string{"outcome"})
 
+	// EndpointStateCount is the total count of the endpoints in various states.
+	EndpointStateCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "endpoint_state",
+			Help:      "Count of all endpoints, tagged by different endpoint states",
+		},
+		[]string{"endpoint_state"},
+	)
+
 	// Policy
 
 	// PolicyCount is the number of policies loaded into the agent
@@ -189,6 +199,7 @@ func init() {
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
+	MustRegister(EndpointStateCount)
 
 	MustRegister(PolicyCount)
 	MustRegister(PolicyRevision)
