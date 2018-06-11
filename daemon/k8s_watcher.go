@@ -1355,11 +1355,12 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 						Warn("Error parsing new CiliumNetworkPolicy rule")
 				}
 
+				enforcementSuccessful := waitForEPsErr == nil
 				cnpns := cilium_v2.CiliumNetworkPolicyNodeStatus{
 					OK: true,
 					// If the deadline was reached then not all endpoints are enforcing
 					// the given policy.
-					Enforcing:   waitForEPsErr == nil,
+					Enforcing:   enforcementSuccessful,
 					Revision:    rev,
 					LastUpdated: cilium_v2.NewTimestamp(),
 					Annotations: cnp.Annotations,
