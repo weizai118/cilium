@@ -39,6 +39,20 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/util"
 )
 
+// AnnotationIstioSidecarStatus is the annotation added by Istio into a pod
+// when it is injected with a sidecar proxy.
+// Since Istio 0.5.0, the value of this annotation is a serialized JSON object
+// with the following structure ("imagePullSecrets" was added in Istio 0.8.0):
+//
+//     {
+//         "version": "0213afe1274259d2f23feb4820ad2f8eb8609b84a5538e5f51f711545b6bde88",
+//         "initContainers": ["sleep", "istio-init"],
+//         "containers": ["istio-proxy"],
+//         "volumes": ["cilium-unix-sock-dir", "istio-envoy", "istio-certs"],
+//         "imagePullSecrets": null
+//     }
+const AnnotationIstioSidecarStatus = "sidecar.istio.io/status"
+
 func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
 	ep, ok := ctx.Value(epOpt).(string)
 	if !ok {
@@ -300,9 +314,51 @@ func (c *criClient) retrieveCRIPodLabels(podID string) (*criRuntime.PodSandboxSt
 		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", podID, err)
 	}
 
-	newLabels, informationLabels := getFilteredLabels(cont.GetStatus().Labels)
+	status := cont.GetStatus()
+	newLabels, informationLabels := getFilteredLabels(status.Labels)
+	_, err = c.isInjectedWithSidecarProxy(status)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// TODO: Do something with the boolean.
 
 	return cont.GetStatus(), newLabels, informationLabels, nil
+}
+
+// isInjectedWithSidecarProxy returns whether the pod with the given CRI status
+// has been injected with an Istio sidecar proxy.
+func (c *criClient) isInjectedWithSidecarProxy(status *criRuntime.PodSandboxStatus) (bool, error) {
+	scopedLog := log.WithField(logfields.ContainerID, status.Id)
+	if _, ok := status.Annotations[AnnotationIstioSidecarStatus]; !ok {
+		// Istio's injection annotation was not found.
+		scopedLog.Debugf("Annotation %s not found; pod was not injected with Istio sidecar proxy",
+			AnnotationIstioSidecarStatus)
+		return false, nil
+	}
+
+	scopedLog.Debugf("Annotation %s found", AnnotationIstioSidecarStatus)
+
+	// Check that the pod has a container named "istio-proxy" and that this
+	// container uses a Cilium-specific sidecar proxy image.
+	ctx := namespaces.WithNamespace(context.Background(), k8sContainerdNamespace)
+	lcr := criRuntime.ListContainersRequest{
+		Filter: &criRuntime.ContainerFilter{
+			PodSandboxId: status.Id,
+		},
+	}
+	containers, err := c.RuntimeServiceClient.ListContainers(ctx, &lcr)
+	if err != nil {
+		return false, fmt.Errorf("unable to inspect containers in '%s': %s", status.Id, err)
+	}
+	for _, container := range containers.Containers {
+		scopedLog.Debugf("Found container in pod: %#v", container)
+		if container.Metadata != nil && container.Metadata.Name == "istio-proxy" {
+			return true, nil
+		}
+		// TODO: Check container.Image / container.ImageRef that this container uses the Cilium-specific image.
+	}
+
+	return false, nil
 }
 
 // IgnoreRunningWorkloads checks for already running containers and checks
